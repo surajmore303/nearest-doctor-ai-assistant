@@ -8,8 +8,7 @@
         "install-client": "cd ../react-app && npm install",
         "heroku-postbuild": "npm run install-client && npm run build",
         "server": "nodemon server.js",
-        "develop": "concurrently --kill-others-on-fail \"npm run server\" \"npm run start --prefix --prefix \"",
-        "start": "concurrently --kill-others-on-fail \"npm run server\" \"cd ../react-app && npm run start  --prefix \""
+        "start": "node server.js"
     },
     "keywords": [
         "node.js",
