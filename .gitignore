@@ -1,0 +1,6 @@
+node_modules/
+.env
+build/
+*.log
+.DS_Store
+server/app/Appointment_chatbot/*.json

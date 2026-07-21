@@ -1,0 +1,17 @@
+{
+  "name": "nearestdoctor",
+  "version": "1.0.0",
+  "description": "AI Healthcare Assistant - NearestDoctor",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
+    "server": "cd server && nodemon server.js",
+    "client": "cd react-app && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../react-app && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "mongodb": "^7.5.0"
+  }
+}
