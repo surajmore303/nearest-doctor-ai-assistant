@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 app.set('views', patho.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 var corsOptions = {
-    origin: "http://localhost:8081"
+    origin: process.env.CLIENT_URL || "http://localhost:8081"
 };
 
 app.use(cors(corsOptions));
