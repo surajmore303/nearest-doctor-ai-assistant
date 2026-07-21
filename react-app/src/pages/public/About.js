@@ -166,10 +166,10 @@ const About = () => {
                 Tunisia, with the vision that every patient deserves instant, secure medical guidance.
             </p>
             <div className="flex flex-wrap justify-center gap-6 pt-6">
-                <a href="#github" className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-xl">
+                <a href="https://github.com/surajmore303/nearest-doctor-ai-assistant" target="_blank" rel="noreferrer" className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all shadow-xl">
                     View Project Repo
                 </a>
-                <a href="#contact" className="bg-white text-slate-900 border border-slate-200 px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+                <a href="mailto:surajmore7858@gmail.com" className="bg-white text-slate-900 border border-slate-200 px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-50 transition-all shadow-sm">
                     Connect With Us
                 </a>
             </div>
