@@ -64,7 +64,6 @@ import AddOldProblem from "./components/records/AddOldProblem";
 import OldProblems from "./components/records/OldProblems";
 import Prescription from "./components/records/Prescription";
 import Register from './pages/auth/Register';
-import Upload from './pages/patient/upload';
 import Blogs from './pages/doctor/blogs';
 import AddBlog from './pages/doctor/AddBlog';
 import EditBlog from './pages/doctor/EditBlog';
@@ -101,7 +100,7 @@ export default function Router() {
                 { path: 'registration', element: currentUser && userRole.includes('doctor') ? < Navigate to = "/doctor/app" / > : currentUser && userRole.includes('patient') ? < Navigate to = "/patient/app" / > : < Registration / > },
                 { path: 'confirm/:confirmationCode', element: < Welcome / > },
                 { path: 'resetPassword/:confirmationCode', element: < ResetPassword / > },
-                { path: 'upload', element: < Upload / > },
+                { path: 'upload', element: < Scanner / > },
 
 
                 { path: 'blog-details/:id', element: <BlogDetailsP /> },

@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import axios from "axios";
 import API_BASE_URL from "../../api-config";
 import Iconify from '../../components/common/Iconify';
+import { Link } from 'react-router-dom';
 
 const MOCK_APPOINTMENTS = [
     { _id: 'm1', DoctorName: 'Sarah Johnson', StartDate: dayjs().add(2, 'day').toISOString(), status: 'Confirmed', type: 'Consultation' },
@@ -13,6 +14,92 @@ const MOCK_APPOINTMENTS = [
     { _id: 'm3', DoctorName: 'Emily White', StartDate: dayjs().subtract(3, 'day').toISOString(), status: 'Completed', type: 'General Checkup' },
     { _id: 'm4', DoctorName: 'Robert Brown', StartDate: dayjs().add(1, 'week').toISOString(), status: 'Confirmed', type: 'Specialist' },
     { _id: 'm5', DoctorName: 'Jessica Lee', StartDate: dayjs().add(3, 'hour').toISOString(), status: 'Confirmed', type: 'Urgent' },
+];
+
+const DISEASE_MEDICINE_DB = [
+  {
+    id: 'fever',
+    title: 'Fever / Bukhar',
+    icon: 'eva:thermometer-fill',
+    color: 'rose',
+    symptoms: 'High body temperature, chills, sweating, body aches',
+    medicines: [
+      { name: 'Paracetamol (Crocin / Dolo 650)', dose: '1 Tablet (500mg/650mg) after food every 6 hours as needed' },
+      { name: 'Ibuprofen (Combiflam)', dose: '1 Tablet after food if severe body aches (consult doctor if acidity history)' }
+    ],
+    remedies: ['Drink 3L ORS / Warm fluids', 'Cold sponge on forehead', 'Adequate bed rest'],
+    warning: 'Consult doctor if fever exceeds 103°F (39.5°C) or lasts over 3 days.'
+  },
+  {
+    id: 'loose_motion',
+    title: 'Loose Motion / Diarrhea',
+    icon: 'eva:droplet-fill',
+    color: 'amber',
+    symptoms: 'Frequent watery stools, stomach cramps, dehydration, weakness',
+    medicines: [
+      { name: 'ORS (Electral / Oral Rehydration Solution)', dose: '1 sachet in 1 Litre boiled cooled water. Sip continuously' },
+      { name: 'Loperamide (Imodium)', dose: '1 capsule after loose stool (Max 2-3 per day if non-infectious)' },
+      { name: 'Econorm / Sporlac Probiotic', dose: '1 sachet twice daily in water to restore gut flora' }
+    ],
+    remedies: ['BRAT Diet (Banana, Rice, Applesauce, Toast)', 'Avoid spicy, oily, & dairy products', 'Coconut water & curd rice'],
+    warning: 'Seek urgent care if blood in stool, severe vomiting, or no urination for 8 hours.'
+  },
+  {
+    id: 'headache',
+    title: 'Headache / Sir Dard',
+    icon: 'eva:flash-fill',
+    color: 'sky',
+    symptoms: 'Throbbing pain around forehead, neck tension, light sensitivity',
+    medicines: [
+      { name: 'Paracetamol (Crocin 500mg)', dose: '1 Tablet with water after meal' },
+      { name: 'Disprin / Aspirin', dose: '1 soluble tablet in water (Avoid if stomach ulcer history)' },
+      { name: 'Naproxen / Saridon', dose: '1 Tablet for acute tension headache' }
+    ],
+    remedies: ['Drink 2 large glasses of water immediately (Dehydration relief)', 'Rest in a quiet dark room', 'Gentle neck massage'],
+    warning: 'Seek emergency care for sudden "thunderclap" headache or fever with neck stiffness.'
+  },
+  {
+    id: 'cough_cold',
+    title: 'Cold & Cough / Zukaam',
+    icon: 'eva:charging-fill',
+    color: 'blue',
+    symptoms: 'Runny nose, sore throat, sneezing, chesty or dry cough',
+    medicines: [
+      { name: 'Cetirizine (Cetzine 10mg)', dose: '1 Tablet at bedtime for allergic cold & sneezing' },
+      { name: 'Alex / Benadryl Cough Syrup', dose: '10 ml (2 teaspoons) 3 times a day' },
+      { name: 'Strepsils / Cofsils Lozenges', dose: 'Suck 1 lozenge every 4 hours for sore throat' }
+    ],
+    remedies: ['Steam inhalation 2-3 times daily', 'Warm salt water gargle', 'Honey + Ginger tea'],
+    warning: 'Consult doctor if cough lasts over 2 weeks or coughing up dark blood.'
+  },
+  {
+    id: 'acidity',
+    title: 'Acidity & Gas / Pet Me Gas',
+    icon: 'eva:fire-fill',
+    color: 'orange',
+    symptoms: 'Chest burning (heartburn), sour burps, stomach bloating',
+    medicines: [
+      { name: 'Digene / Gelusil Liquid Syrup', dose: '2 teaspoons (10 ml) after meals as needed' },
+      { name: 'Pantoprazole (Pan 40)', dose: '1 Tablet empty stomach in the morning 30 mins before breakfast' },
+      { name: 'Eno Powder', dose: '1 sachet in 1 glass water during acute gas' }
+    ],
+    remedies: ['Drink cold milk or coconut water', 'Avoid lying down immediately after meals', 'Chew fennel seeds (Saunf)'],
+    warning: 'Chest pain radiating to arm or jaw could be heart-related — seek emergency help!'
+  },
+  {
+    id: 'body_pain',
+    title: 'Body Pain & Muscle Ache',
+    icon: 'eva:heart-fill',
+    color: 'indigo',
+    symptoms: 'Joint stiffness, backache, muscular weakness, fatigue',
+    medicines: [
+      { name: 'Combiflam (Ibuprofen + Paracetamol)', dose: '1 Tablet after food twice daily' },
+      { name: 'Volini / Moov Spray & Gel', dose: 'Apply gently on affected pain area 3 times daily' },
+      { name: 'Calcium + Vitamin D3 Supplement', dose: '1 Tablet daily after breakfast' }
+    ],
+    remedies: ['Hot water bag compress on sore muscles', 'Gentle stretching exercises', 'Epsom salt warm bath'],
+    warning: 'Consult doctor if joint swelling, redness, or pain prevents movement.'
+  }
 ];
 
 function MessageModal({ doctor, currentUser, onClose }) {
@@ -41,7 +128,7 @@ function MessageModal({ doctor, currentUser, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 w-full max-w-lg relative">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 w-full max-w-lg relative border border-slate-100">
         <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-xl hover:bg-slate-100 transition-all">
           <Iconify icon="eva:close-fill" className="w-6 h-6 text-slate-400" />
         </button>
@@ -99,6 +186,7 @@ const Dashboard = () => {
   const liveAppointments = useSelector((state) => state.appointmentReducer.appointment);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedDisease, setSelectedDisease] = useState(DISEASE_MEDICINE_DB[0]);
 
   const appointments = liveAppointments && liveAppointments.length > 0 ? liveAppointments : MOCK_APPOINTMENTS;
 
@@ -120,6 +208,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
         {selectedDoctor && <MessageModal doctor={selectedDoctor} currentUser={currentUser} onClose={() => setSelectedDoctor(null)} />}
+        
         {/* Header Section */}
         <div className="flex flex-row items-center justify-between gap-6 pb-2">
           <div className="text-left">
@@ -129,14 +218,11 @@ const Dashboard = () => {
             <p className="text-slate-500 font-medium mt-1">Here is what's happening with your medical profile today.</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center justify-center p-3.5 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-              <Iconify icon="eva:settings-2-fill" className="w-5 h-5" />
-            </button>
-            <button className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 whitespace-nowrap">
+            <Link to="/patient/doctors" className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 whitespace-nowrap no-underline">
               <Iconify icon="eva:plus-fill" className="w-5 h-5" />
-              <span className="hidden sm:inline">New Appointment</span>
-              <span className="sm:hidden text-xs">New</span>
-            </button>
+              <span className="hidden sm:inline">Book Appointment</span>
+              <span className="sm:hidden text-xs">Book</span>
+            </Link>
           </div>
         </div>
 
@@ -159,6 +245,130 @@ const Dashboard = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 💊 DISEASE & MEDICINE RECOMMENDATION ASSISTANT (NEW FEATURE) */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <Iconify icon="eva:square-fill" className="w-64 h-64 -rotate-12 text-white" />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-700/50">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-3 py-1 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest border border-sky-500/30 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                  Instant Remedy Guide
+                </span>
+              </div>
+              <h2 className="text-3xl font-black tracking-tight text-white">Select Disease & Recommended Medicines</h2>
+              <p className="text-slate-300 font-medium text-sm mt-1">Pick a symptom or health condition below to see recommended OTC medicines, dosage, and care tips.</p>
+            </div>
+
+            <Link
+              to="/patient/ai-assistant"
+              className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white font-bold transition-all shadow-lg shadow-sky-500/30 whitespace-nowrap self-start md:self-auto no-underline"
+            >
+              <Iconify icon="mdi:robot-happy-outline" className="w-5 h-5" />
+              <span>Ask AI Assistant</span>
+            </Link>
+          </div>
+
+          {/* Disease Category Chips Grid */}
+          <div className="py-6 flex items-center gap-3 overflow-x-auto no-scrollbar">
+            {DISEASE_MEDICINE_DB.map((dis) => {
+              const isSelected = selectedDisease?.id === dis.id;
+              return (
+                <button
+                  key={dis.id}
+                  onClick={() => setSelectedDisease(dis)}
+                  className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm transition-all whitespace-nowrap shrink-0 border ${
+                    isSelected
+                      ? 'bg-sky-500 text-white border-sky-400 shadow-lg shadow-sky-500/30 scale-105'
+                      : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  <Iconify icon={dis.icon} className="w-5 h-5" />
+                  <span>{dis.title}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Selected Disease Details & Medicine Recommendation Card */}
+          {selectedDisease && (
+            <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-[2rem] p-6 md:p-8 space-y-6 animate-in fade-in duration-500">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                  <h3 className="text-2xl font-black text-white flex items-center gap-3">
+                    <Iconify icon={selectedDisease.icon} className="w-7 h-7 text-sky-400" />
+                    {selectedDisease.title}
+                  </h3>
+                  <p className="text-slate-300 text-xs font-medium mt-1">
+                    <strong>Symptoms:</strong> {selectedDisease.symptoms}
+                  </p>
+                </div>
+                <span className="px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase tracking-widest self-start sm:self-auto">
+                  Verified Remedies
+                </span>
+              </div>
+
+              {/* Medicines List Grid */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-sky-400 mb-3 flex items-center gap-2">
+                  <Iconify icon="eva:shield-fill" className="w-4 h-4" />
+                  Recommended Medications & Dosage:
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedDisease.medicines.map((med, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-white/10 border border-white/10 space-y-1.5 hover:bg-white/15 transition-colors">
+                      <p className="font-black text-white text-base flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-sky-400" />
+                        {med.name}
+                      </p>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        <strong className="text-sky-300">Dosage:</strong> {med.dose}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Home Remedies & Warnings Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 space-y-2">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-sky-300 flex items-center gap-2">
+                    <Iconify icon="eva:heart-fill" className="w-4 h-4" />
+                    Home Care & Natural Remedies:
+                  </h4>
+                  <ul className="space-y-1 text-xs text-slate-200 font-medium">
+                    {selectedDisease.remedies.map((rem, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <span className="text-sky-400">•</span> {rem}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-rose-300 flex items-center gap-2">
+                    <Iconify icon="eva:alert-triangle-fill" className="w-4 h-4" />
+                    When to See a Doctor:
+                  </h4>
+                  <p className="text-xs text-rose-200 leading-relaxed font-medium">
+                    {selectedDisease.warning}
+                  </p>
+                  <Link
+                    to="/patient/doctors"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-300 hover:text-white underline mt-1"
+                  >
+                    <span>Book Doctor Consultation</span>
+                    <Iconify icon="eva:arrow-forward-fill" className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Appointments Table Card */}
@@ -231,6 +441,7 @@ const Dashboard = () => {
             </table>
           </div>
         </div>
+
         {/* Available Doctors Section */}
         {doctors.length > 0 && (
           <div className="rounded-[2.5rem] bg-white border border-slate-50 shadow-xl shadow-slate-100/50 overflow-hidden">
@@ -278,4 +489,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard;

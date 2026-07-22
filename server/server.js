@@ -10,11 +10,40 @@ const rateLimit = require('express-rate-limit');
 // view engine setup
 app.set('views', patho.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-var corsOptions = {
-    origin: ["http://localhost:8081", process.env.CLIENT_URL].filter(Boolean)
+const allowedOrigins = [
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://localhost:8082",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:8082",
+    process.env.CLIENT_URL,
+    process.env.REACT_APP_CLIENT_URL,
+].filter(Boolean);
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        const normalizedOrigin = origin.toLowerCase();
+        const isLocalDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(normalizedOrigin);
+        const isAllowedOrigin = allowedOrigins.some((allowedOrigin) => allowedOrigin && normalizedOrigin === allowedOrigin.toLowerCase());
+
+        if (isLocalDevOrigin || isAllowedOrigin) {
+            return callback(null, true);
+        }
+
+        return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-access-token", "Origin", "Accept"],
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.set('trust proxy', 1);
 app.use(cookieParser());
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -80,6 +109,7 @@ const stripeRoute = require('./app/routes/payment.routes');
 const scrapRoute = require('./app/routes/scrap.routes');
 const messageRoute = require('./app/routes/message.routes');
 const scanRoute = require('./app/routes/scan.routes');
+const aiRoute = require('./app/routes/ai.routes');
 
 app.use(morgan('dev'));
 app.use('/blogs', blogRoute)
@@ -95,6 +125,7 @@ app.use('/stripe', stripeRoute);
 app.use('/scrap', scrapRoute);
 app.use('/messages', messageRoute);
 app.use('/scans', scanRoute);
+app.use('/api/ai', aiRoute);
 
 app.post('/chatbot', bodyParser.json(), bodyParser.urlencoded({ extended: true }), async(req, res) => {
     const message = req.body.message

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import API_BASE_URL from "../../api-config";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Iconify from "../../components/common/Iconify";
 import { MOCK_DOCTORS } from "../../constants/mockRecords";
 import AuthService from "../../services/auth.service";
@@ -17,6 +17,15 @@ function DoctorDetails() {
     const [msgSubject, setMsgSubject] = useState('');
     const [msgSent, setMsgSent] = useState(false);
     const [sending, setSending] = useState(false);
+
+    // Book Appointment Modal States
+    const [showBookModal, setShowBookModal] = useState(false);
+    const [bookingDate, setBookingDate] = useState('');
+    const [bookingTime, setBookingTime] = useState('');
+    const [phone, setPhone] = useState(currentUser?.phone || '');
+    const [reason, setReason] = useState('');
+    const [bookingSending, setBookingSending] = useState(false);
+    const [bookingSuccess, setBookingSuccess] = useState(false);
 
     const handleSendMessage = async () => {
         if (!msgBody.trim()) return;
@@ -34,6 +43,52 @@ function DoctorDetails() {
         setSending(false);
     };
 
+    const handleConfirmBooking = async (e) => {
+        e.preventDefault();
+        if (!bookingDate || !bookingTime) return;
+        setBookingSending(true);
+        try {
+            const doctorName = doctor ? `Dr. ${doctor.firstname} ${doctor.lastname}` : 'Doctor';
+            const startIso = new Date(`${bookingDate}T${bookingTime}`).toISOString();
+
+            // 1. Create Appointment in MongoDB
+            await axios.post(`${API_BASE_URL}/Appointments/${currentUser?.id || 'guest'}`, {
+                Firstname: currentUser?.username || 'Patient',
+                Lastname: '',
+                Email: currentUser?.email || '',
+                Phone: phone,
+                StartDate: startIso,
+                DoctorName: doctorName,
+                User: currentUser?.id
+            });
+
+            // 2. Send instant Message Notification to Doctor in MongoDB
+            await axios.post(`${API_BASE_URL}/messages/send`, {
+                senderId: currentUser?.id || 'guest',
+                senderName: currentUser?.username || 'Patient',
+                doctorId: id,
+                subject: '📅 New Appointment Booked!',
+                body: `Patient ${currentUser?.username || 'Patient'} (${currentUser?.email || 'No email'}) has booked an appointment for ${bookingDate} at ${bookingTime}. Phone: ${phone || 'N/A'}. Reason: ${reason || 'General Consultation'}`
+            });
+
+            // 3. Mark alert in localStorage for immediate sync across tabs
+            localStorage.setItem('latest_appointment_alert', JSON.stringify({
+                patientName: currentUser?.username || 'Patient',
+                date: bookingDate,
+                time: bookingTime,
+                doctorName: doctorName,
+                doctorId: id,
+                timestamp: Date.now()
+            }));
+
+            setBookingSuccess(true);
+        } catch (err) {
+            console.error('Booking error:', err);
+        } finally {
+            setBookingSending(false);
+        }
+    };
+
     useEffect(() => {
         const getDoctorData = async () => {
             try {
@@ -41,7 +96,6 @@ function DoctorDetails() {
                 if (res.data && res.data.firstname) {
                     setDoctor(res.data);
                 } else {
-                    // Fallback to mock data if API returns empty or invalid
                     const mock = MOCK_DOCTORS.find(d => d._id === id) || MOCK_DOCTORS[0];
                     setDoctor(mock);
                 }
@@ -68,6 +122,103 @@ function DoctorDetails() {
 
     return (
         <div className="space-y-10 animate-in fade-in duration-700">
+            {/* Book Appointment Modal */}
+            {showBookModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-10 w-full max-w-md relative">
+                        <button 
+                            onClick={() => { setShowBookModal(false); setBookingSuccess(false); }} 
+                            className="absolute top-6 right-6 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all"
+                        >
+                            <Iconify icon="eva:close-fill" className="w-6 h-6" />
+                        </button>
+
+                        {bookingSuccess ? (
+                            <div className="text-center py-6 space-y-4">
+                                <div className="w-20 h-20 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+                                    <Iconify icon="eva:checkmark-circle-2-fill" className="w-10 h-10 animate-bounce" />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900">Appointment Booked!</h3>
+                                <p className="text-slate-500 text-sm font-medium">
+                                    Your appointment request with <strong>Dr. {doctor?.firstname} {doctor?.lastname}</strong> has been saved in database and notified to their dashboard.
+                                </p>
+                                <button 
+                                    onClick={() => { setShowBookModal(false); setBookingSuccess(false); navigate('/patient/appointments'); }}
+                                    className="mt-4 px-8 py-3.5 rounded-2xl bg-sky-500 text-white font-black text-xs uppercase tracking-widest hover:bg-sky-600 transition-all w-full shadow-lg shadow-sky-200"
+                                >
+                                    View My Appointments
+                                </button>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleConfirmBooking} className="space-y-4">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center font-black text-lg">
+                                        {doctor?.firstname?.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-slate-900">Book Appointment</h3>
+                                        <p className="text-xs text-sky-500 font-bold">Dr. {doctor?.firstname} {doctor?.lastname}</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Select Date</label>
+                                    <input 
+                                        type="date" 
+                                        required 
+                                        min={new Date().toISOString().split('T')[0]}
+                                        value={bookingDate} 
+                                        onChange={(e) => setBookingDate(e.target.value)} 
+                                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm font-medium"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Select Time</label>
+                                    <input 
+                                        type="time" 
+                                        required 
+                                        value={bookingTime} 
+                                        onChange={(e) => setBookingTime(e.target.value)} 
+                                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm font-medium"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Phone Number</label>
+                                    <input 
+                                        type="tel" 
+                                        placeholder="+1 (555) 000-0000"
+                                        value={phone} 
+                                        onChange={(e) => setPhone(e.target.value)} 
+                                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm font-medium"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Reason / Symptoms (Optional)</label>
+                                    <textarea 
+                                        rows={3}
+                                        placeholder="Describe reason for consultation..."
+                                        value={reason} 
+                                        onChange={(e) => setReason(e.target.value)} 
+                                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm font-medium resize-none"
+                                    />
+                                </div>
+
+                                <button 
+                                    type="submit" 
+                                    disabled={bookingSending || !bookingDate || !bookingTime}
+                                    className="w-full py-4 rounded-2xl bg-sky-500 text-white font-black uppercase tracking-widest text-xs hover:bg-sky-600 transition-all disabled:opacity-50 shadow-lg shadow-sky-200 mt-2"
+                                >
+                                    {bookingSending ? 'Booking...' : 'Confirm Appointment'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Message Modal */}
             {showMsgModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -90,7 +241,7 @@ function DoctorDetails() {
                                     <div className="w-14 h-14 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-500 font-black text-xl">{doctor.firstname?.charAt(0)}</div>
                                     <div>
                                         <h3 className="text-xl font-black text-slate-900">Message Dr. {doctor.firstname} {doctor.lastname}</h3>
-                                        <p className="text-xs text-sky-500 font-bold uppercase tracking-widest">{doctor.speciality || 'Medical Professional'}</p>
+                                        <p className="text-xs text-sky-500 font-bold uppercase tracking-widest">{doctor.speciality || doctor.specialty || 'Medical Professional'}</p>
                                     </div>
                                 </div>
                                 <input type="text" placeholder="Subject (optional)" value={msgSubject} onChange={e => setMsgSubject(e.target.value)} className="w-full px-5 py-3.5 rounded-2xl border border-slate-200 mb-4 focus:outline-none focus:ring-2 focus:ring-sky-400/30 focus:border-sky-400 text-sm font-medium" />
@@ -105,12 +256,10 @@ function DoctorDetails() {
             )}
             {/* Premium Hero Section */}
             <div className="relative group rounded-[3.5rem] overflow-hidden bg-slate-900 shadow-2xl shadow-slate-200">
-                {/* Background Pattern/Gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
                 <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px]" />
                 
                 <div className="relative p-8 md:p-12 flex flex-col md:flex-row items-center md:items-start gap-10">
-                    {/* Profile Image with Glow */}
                     <div className="relative">
                         <div className="absolute inset-0 bg-sky-500/20 blur-3xl rounded-full group-hover:bg-sky-500/30 transition-colors duration-500" />
                         <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-[3rem] overflow-hidden border-4 border-white/10 shadow-2xl">
@@ -122,11 +271,10 @@ function DoctorDetails() {
                         </div>
                     </div>
 
-                    {/* Basic Info */}
                     <div className="flex-1 text-center md:text-left space-y-6 pt-4">
                         <div>
                             <span className="px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-black uppercase tracking-widest">
-                                {doctor.specialty || 'General Specialist'}
+                                {doctor.specialty || doctor.speciality || 'General Specialist'}
                             </span>
                             <h1 className="text-4xl md:text-5xl font-black text-white mt-4 tracking-tight leading-none">
                                 Dr. {doctor.firstname} {doctor.lastname}
@@ -153,14 +301,13 @@ function DoctorDetails() {
                         </div>
                     </div>
 
-                    {/* Actions Area */}
                     <div className="flex flex-col gap-4 w-full md:w-auto md:pt-4">
-                        <Link 
-                            to={`/patient/take-appointment?doctorId=${id}&doctorName=${doctor.firstname} ${doctor.lastname}`}
-                            className="w-full md:w-auto px-10 py-5 rounded-[1.8rem] bg-sky-500 text-white font-black text-sm uppercase tracking-widest hover:bg-sky-400 hover:scale-[1.02] transition-all shadow-xl shadow-sky-500/20 text-center no-underline active:scale-95"
+                        <button 
+                            onClick={() => setShowBookModal(true)}
+                            className="w-full md:w-auto px-10 py-5 rounded-[1.8rem] bg-sky-500 text-white font-black text-sm uppercase tracking-widest hover:bg-sky-400 hover:scale-[1.02] transition-all shadow-xl shadow-sky-500/20 text-center cursor-pointer active:scale-95"
                         >
                             Book Appointment
-                        </Link>
+                        </button>
                         <button
                             onClick={() => setShowMsgModal(true)}
                             className="w-full md:w-auto px-10 py-5 rounded-[1.8rem] bg-white/5 border border-white/10 text-white font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md"
@@ -173,9 +320,7 @@ function DoctorDetails() {
 
             {/* Content Tabs & Detailed Info */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-12">
-                {/* Left Column: Stats & Tabs */}
                 <div className="space-y-8">
-                    {/* Vertical Tabs */}
                     <div className="p-3 rounded-[3rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 space-y-2">
                         {tabs.map((tab) => (
                             <button
@@ -193,7 +338,6 @@ function DoctorDetails() {
                         ))}
                     </div>
 
-                    {/* Quick Contact Card */}
                     <div className="p-8 rounded-[3rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/40">
                         <h3 className="text-xl font-black text-slate-900 mb-6 tracking-tight">Contact Details</h3>
                         <div className="space-y-6">
@@ -228,7 +372,6 @@ function DoctorDetails() {
                     </div>
                 </div>
 
-                {/* Right Column: Tab Content */}
                 <div className="lg:col-span-2">
                     <div className="p-10 md:p-14 rounded-[4rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 min-h-[500px]">
                         {activeTab === 'about' && (
@@ -236,7 +379,7 @@ function DoctorDetails() {
                                 <section>
                                     <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">Biography</h3>
                                     <p className="text-slate-500 text-lg leading-relaxed font-medium">
-                                        {doctor.about || `Dr. ${doctor.firstname} is a highly accomplished ${doctor.specialty || 'specialist'} with a passion for patient-centered care. With extensive training from top medical institutions, they bring a wealth of knowledge and expertise to every consultation.`}
+                                        {doctor.about || `Dr. ${doctor.firstname} is a highly accomplished ${doctor.specialty || doctor.speciality || 'specialist'} with a passion for patient-centered care. With extensive training from top medical institutions, they bring a wealth of knowledge and expertise to every consultation.`}
                                     </p>
                                 </section>
 
@@ -351,7 +494,6 @@ function DoctorDetails() {
                                     </div>
                                 </div>
 
-                                {/* Cabinet Catalogue */}
                                 {doctor.cabinet_images && doctor.cabinet_images.length > 0 && (
                                     <section className="pt-8 border-t border-slate-50">
                                         <div className="flex items-center justify-between mb-8">

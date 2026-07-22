@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from "react-redux";
 import { GetAppointments } from "../../store/actions/appointment";
 import { GetTalks } from "../../store/actions/chatapp";
@@ -20,18 +20,49 @@ const Dashboard = () => {
     const talks = liveTalks && liveTalks.length > 0 ? liveTalks : MOCK_PATIENTS;
     const [messages, setMessages] = useState([]);
     const [selectedMsg, setSelectedMsg] = useState(null);
+    const [popupAppointment, setPopupAppointment] = useState(null);
+    const [aiReply, setAiReply] = useState('');
+    const [replyLoading, setReplyLoading] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    const fetchMessages = () => {
+    const fetchMessages = useCallback(() => {
         if (!currentUser?.id) return;
         axios.get(`${API_BASE_URL}/messages/doctor/${currentUser.id}`)
             .then(res => {
                 setMessages(res.data);
-                setUnreadCount(res.data.filter(m => !m.read).length);
+                const unreadList = res.data.filter(m => !m.read);
+                setUnreadCount(unreadList.length);
+
+                // Auto-trigger popup modal for unread appointment notifications
+                const latestAppointmentMsg = unreadList.find(m => 
+                    m.subject?.toLowerCase().includes('appointment') || m.body?.toLowerCase().includes('appointment')
+                );
+                if (latestAppointmentMsg && !popupAppointment) {
+                    setPopupAppointment(latestAppointmentMsg);
+                }
             }).catch(() => {});
+    }, [currentUser?.id, popupAppointment]);
+
+    const generateSystemReply = async (messageBody) => {
+        if (!messageBody) return;
+        setReplyLoading(true);
+        setAiReply('');
+
+        try {
+            const { data } = await axios.post(`${API_BASE_URL}/api/ai/chat`, {
+                message: messageBody,
+                history: []
+            });
+            setAiReply(data.reply || '');
+        } catch {
+            setAiReply(`⚠️ I'm having trouble connecting right now. Please try again.\n\nFor urgent health concerns, please contact a healthcare professional directly or call emergency services.`);
+        } finally {
+            setReplyLoading(false);
+        }
     };
 
     const markRead = async (msg) => {
+        if (!msg?._id) return;
         setSelectedMsg(msg);
         if (!msg.read) {
             await axios.patch(`${API_BASE_URL}/messages/read/${msg._id}`);
@@ -40,12 +71,38 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
+        if (!selectedMsg?.body) return;
+        generateSystemReply(selectedMsg.body);
+    }, [selectedMsg?._id, selectedMsg?.body]);
+
+    useEffect(() => {
         if (currentUser?.id) {
             dispatch(GetAppointments(currentUser.id));
             dispatch(GetTalks(currentUser.id));
             fetchMessages();
+
+            // Interval polling every 3 seconds for real-time notification popups
+            const timer = setInterval(() => {
+                fetchMessages();
+                const localAlert = localStorage.getItem('latest_appointment_alert');
+                if (localAlert) {
+                    try {
+                        const parsed = JSON.parse(localAlert);
+                        if (parsed && (Date.now() - parsed.timestamp < 60000)) {
+                            setPopupAppointment({
+                                senderName: parsed.patientName,
+                                subject: '📅 New Appointment Booked!',
+                                body: `Patient ${parsed.patientName} has booked an appointment for ${parsed.date} at ${parsed.time}.`
+                            });
+                            localStorage.removeItem('latest_appointment_alert');
+                        }
+                    } catch (e) {}
+                }
+            }, 3000);
+
+            return () => clearInterval(timer);
         }
-    }, [dispatch, currentUser?.id]);
+    }, [dispatch, currentUser?.id, fetchMessages]);
 
     if (!currentUser) {
         return (
@@ -105,6 +162,67 @@ const Dashboard = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Real-time Appointment Notification Popup Modal */}
+            {popupAppointment && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+                    <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-10 w-full max-w-lg relative border-4 border-sky-400/30">
+                        <button 
+                            onClick={() => setPopupAppointment(null)} 
+                            className="absolute top-6 right-6 p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all"
+                        >
+                            <Iconify icon="eva:close-fill" className="w-6 h-6" />
+                        </button>
+
+                        <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-sky-400 to-sky-600 text-white flex items-center justify-center mx-auto mb-6 shadow-xl shadow-sky-200">
+                            <Iconify icon="eva:bell-fill" className="w-10 h-10 animate-bounce" />
+                        </div>
+
+                        <div className="text-center space-y-2 mb-6">
+                            <span className="px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black uppercase tracking-widest">
+                                🚨 New Appointment Alert!
+                            </span>
+                            <h3 className="text-3xl font-black text-slate-900">Appointment Booked</h3>
+                            <p className="text-slate-500 text-sm font-medium">A patient has booked a new appointment with you.</p>
+                        </div>
+                        
+                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 space-y-3 mb-8">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Patient Name</span>
+                                <span className="font-black text-slate-900 text-base">{popupAppointment.senderName || popupAppointment.Firstname || 'Patient'}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Subject</span>
+                                <span className="font-bold text-sky-600">{popupAppointment.subject || 'New Appointment'}</span>
+                            </div>
+                            <div className="text-xs text-slate-600 font-medium leading-relaxed pt-3 border-t border-slate-200/60 whitespace-pre-line">
+                                {popupAppointment.body || 'Patient has requested an appointment.'}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                onClick={() => {
+                                    if (popupAppointment._id) markRead(popupAppointment);
+                                    setPopupAppointment(null);
+                                }}
+                                className="py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                            >
+                                Dismiss
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (popupAppointment._id) markRead(popupAppointment);
+                                    setPopupAppointment(null);
+                                }}
+                                className="py-4 rounded-2xl bg-sky-500 text-white font-black text-xs uppercase tracking-widest hover:bg-sky-600 transition-all shadow-xl shadow-sky-200"
+                            >
+                                View & Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-row items-center justify-between gap-6 pb-6 w-full border-b border-slate-100/50">
                 <div className="text-left">
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight">
@@ -298,6 +416,19 @@ const Dashboard = () => {
                         </div>
                         <p className="text-xs font-black uppercase tracking-widest text-sky-500 mb-2">{selectedMsg.subject}</p>
                         <p className="text-slate-700 leading-relaxed bg-slate-50 rounded-2xl p-6">{selectedMsg.body}</p>
+
+                        <div className="mt-6 rounded-2xl bg-sky-50 border border-sky-100 p-5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-3">System Generated Reply</p>
+                            {replyLoading ? (
+                                <div className="flex items-center gap-3 text-slate-500 text-sm">
+                                    <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                                    <span>Generating reply...</span>
+                                </div>
+                            ) : (
+                                <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">{aiReply || 'No reply generated yet.'}</p>
+                            )}
+                        </div>
+
                         <button onClick={() => setSelectedMsg(null)} className="mt-8 w-full py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-all">Close</button>
                     </div>
                 </div>

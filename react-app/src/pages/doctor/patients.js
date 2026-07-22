@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Iconify from '../../components/common/Iconify';
 import { Link } from 'react-router-dom';
 import AuthService from "../../services/auth.service";
 import Swal from 'sweetalert2';
+import axios from 'axios';
+import dayjs from 'dayjs';
+import API_BASE_URL from '../../api-config';
+
+const INITIAL_PATIENTS = [
+    { id: 'p1', name: 'Jennifer Robinson', age: '35 years old', address: '1545 Dorsey Ln NE, Leland, NC, 28451', phone: '(207) 808 8863', email: 'jenniferrobinson@example.com', status: 'Registered' },
+    { id: 'p2', name: 'Terry Baker', age: '63 years old', address: '555 Front St #APT 2H, Hempstead, NY, 11550', phone: '(376) 150 6975', email: 'terrybaker@example.com', status: 'Registered' },
+    { id: 'p3', name: 'Kyle Bowman', age: '7 years old', address: '5060 Fairways Cir #APT 207, Vero Beach, FL, 32967', phone: '(981) 756 6128', email: 'kylebowman@example.com', status: 'Registered' },
+    { id: 'p4', name: 'Marie Howard', age: '22 years old', address: '3501 New Haven Ave #152, Columbia, MO, 65201', phone: '(634) 09 3833', email: 'mariehoward@example.com', status: 'Registered' },
+];
 
 function Patients() {
+    const currentUser = AuthService.getCurrentUser();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [patients, setPatients] = useState(INITIAL_PATIENTS);
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -17,13 +29,72 @@ function Patients() {
         birthdate: '',
     });
 
-    // In a real app, this would come from a Redux state or API
-    const [patients, setPatients] = useState([
-        { id: 1, name: 'Jennifer Robinson', age: 35, address: '1545 Dorsey Ln NE, Leland, NC, 28451', phone: '(207) 808 8863', email: 'jenniferrobinson@example.com' },
-        { id: 2, name: 'Terry Baker', age: 63, address: '555 Front St #APT 2H, Hempstead, NY, 11550', phone: '(376) 150 6975', email: 'terrybaker@example.com' },
-        { id: 3, name: 'Kyle Bowman', age: 7, address: '5060 Fairways Cir #APT 207, Vero Beach, FL, 32967', phone: '(981) 756 6128', email: 'kylebowman@example.com' },
-        { id: 4, name: 'Marie Howard', age: 22, address: '3501 New Haven Ave #152, Columbia, MO, 65201', phone: '(634) 09 3833', email: 'mariehoward@example.com' },
-    ]);
+    const loadDynamicPatients = useCallback(async () => {
+        if (!currentUser?.id) return;
+        try {
+            // 1. Fetch appointments from MongoDB
+            const appRes = await axios.get(`${API_BASE_URL}/Appointments/getAll/${currentUser.id}`);
+            const appList = appRes.data?.appointments || [];
+
+            // 2. Fetch messages from MongoDB
+            const msgRes = await axios.get(`${API_BASE_URL}/messages/doctor/${currentUser.id}`);
+            const msgList = msgRes.data || [];
+
+            const fetchedPatients = [];
+
+            // Map appointments into patient list
+            appList.forEach((app, index) => {
+                const fullName = `${app.Firstname || ''} ${app.Lastname || ''}`.trim() || 'Booked Patient';
+                const formattedDate = app.StartDate ? dayjs(app.StartDate).format('MMM DD, YYYY · hh:mm A') : 'Scheduled';
+                fetchedPatients.push({
+                    id: app._id || `app-${index}`,
+                    name: fullName,
+                    age: 'Appointment Patient',
+                    address: `Appointment: ${formattedDate}`,
+                    phone: app.Phone || 'Not provided',
+                    email: app.Email || 'No email registered',
+                    status: 'Confirmed Appointment',
+                    isConfirmed: true
+                });
+            });
+
+            // Map message senders into patient list if not already added
+            msgList.forEach((msg, index) => {
+                if (msg.senderName && !fetchedPatients.some(p => p.name.toLowerCase() === msg.senderName.toLowerCase())) {
+                    fetchedPatients.push({
+                        id: msg._id || `msg-${index}`,
+                        name: msg.senderName,
+                        age: 'Inquired Patient',
+                        address: msg.subject || 'Patient Consultation Request',
+                        phone: 'Portal Message',
+                        email: 'Patient Contact',
+                        status: 'Active Contact',
+                        isConfirmed: false
+                    });
+                }
+            });
+
+            if (fetchedPatients.length > 0) {
+                setPatients(() => {
+                    const combined = [...fetchedPatients];
+                    INITIAL_PATIENTS.forEach(dummy => {
+                        if (!combined.some(p => p.name.toLowerCase() === dummy.name.toLowerCase())) {
+                            combined.push(dummy);
+                        }
+                    });
+                    return combined;
+                });
+            }
+        } catch (err) {
+            console.log('Error fetching live patients from MongoDB:', err);
+        }
+    }, [currentUser?.id]);
+
+    useEffect(() => {
+        loadDynamicPatients();
+        const interval = setInterval(loadDynamicPatients, 4000);
+        return () => clearInterval(interval);
+    }, [loadDynamicPatients]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -42,17 +113,18 @@ function Patients() {
                 formData.firstname,
                 formData.lastname,
                 formData.phone,
-                "user" // Assuming "user" is the role for patients
+                "user"
             );
 
-            // Add to local state for immediate feedback
             const newPatient = {
                 id: Date.now(),
                 name: `${formData.firstname} ${formData.lastname}`,
-                age: new Date().getFullYear() - new Date(formData.birthdate).getFullYear(),
-                address: 'New Registration',
+                age: formData.birthdate ? `${new Date().getFullYear() - new Date(formData.birthdate).getFullYear()} years old` : 'New Patient',
+                address: 'Directly Registered Patient',
                 phone: formData.phone,
-                email: formData.email
+                email: formData.email,
+                status: 'Confirmed Patient',
+                isConfirmed: true
             };
 
             setPatients(prev => [newPatient, ...prev]);
@@ -93,7 +165,7 @@ function Patients() {
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                         Patient <span className="text-sky-500">Directory</span>
                     </h1>
-                    <p className="text-slate-500 font-medium mt-1">Manage and view all registered patients.</p>
+                    <p className="text-slate-500 font-medium mt-1">Manage and view all patients with confirmed appointments.</p>
                 </div>
                 <button 
                     onClick={() => setIsAddModalOpen(true)}
@@ -116,6 +188,15 @@ function Patients() {
                         <p className="text-2xl font-black text-slate-900">{patients.length}</p>
                     </div>
                 </div>
+                <div className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                        <Iconify icon="eva:checkmark-circle-2-fill" className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirmed Appointments</p>
+                        <p className="text-2xl font-black text-slate-900">{patients.filter(p => p.isConfirmed).length}</p>
+                    </div>
+                </div>
             </div>
 
             {/* Main Table Container */}
@@ -125,8 +206,9 @@ function Patients() {
                         <thead>
                             <tr className="bg-slate-50/50">
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient</th>
-                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Info</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Info & Schedule</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Contact</th>
+                                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -135,21 +217,31 @@ function Patients() {
                                 <tr key={patient.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-500 font-black text-sm">
-                                                {patient.name[0]}
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 text-white flex items-center justify-center font-black text-sm shadow-md">
+                                                {patient.name ? patient.name[0].toUpperCase() : 'P'}
                                             </div>
                                             <div>
                                                 <p className="font-bold text-slate-900">{patient.name}</p>
-                                                <p className="text-xs text-slate-500 font-medium">{patient.age} years old</p>
+                                                <p className="text-xs text-slate-500 font-medium">{patient.age}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <p className="text-sm text-slate-700 font-medium max-w-[200px] truncate">{patient.address}</p>
+                                        <p className="text-sm text-slate-700 font-medium max-w-[240px] truncate">{patient.address}</p>
                                     </td>
                                     <td className="px-8 py-6">
                                         <p className="text-sm text-slate-700 font-medium">{patient.email}</p>
                                         <p className="text-xs text-slate-400 mt-1">{patient.phone}</p>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                                            patient.isConfirmed 
+                                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                        }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${patient.isConfirmed ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                            {patient.status || 'Active'}
+                                        </span>
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -308,4 +400,4 @@ function Patients() {
     );
 }
 
-export default Patients;
+export default Patients;

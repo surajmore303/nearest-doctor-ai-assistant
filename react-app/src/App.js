@@ -25,7 +25,7 @@ const App = () => {
           if (commandData.command === "showLoginPage") navigate("/login", { replace: true });
           if (commandData.command === "showSignupPage") navigate("/role", { replace: true });
           if (commandData.command === "showUploadPage") {
-            navigate(localStorage.getItem("token") ? "/patient/symptoms" : "/login", { replace: true });
+            navigate("/upload", { replace: true });
           }
         },
       });
