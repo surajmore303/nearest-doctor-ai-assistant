@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import AuthService from "../../services/auth.service";
 import { useNavigate, Link } from "react-router-dom";
 import API_BASE_URL from "../../api-config";
@@ -14,16 +14,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-
-  // LinkedIn OAuth
-  const handleLinkedIn = () => {
-    const clientId = process.env.REACT_APP_LINKEDIN_CLIENT_ID || "78zj0z0qx941dq";
-    const redirectUri = process.env.REACT_APP_LINKEDIN_REDIRECT_URI || `${API_BASE_URL}/oauth`;
-    const authUrl = process.env.REACT_APP_LINKEDIN_AUTH_URL || "https://www.linkedin.com/oauth/v2/authorization";
-    const oauthUrl = `${authUrl}?response_type=code&client_id=${clientId}&scope=r_liteprofile%20r_emailaddress&state=123456&redirect_uri=${redirectUri}`;
-    const w = 700, h = 730;
-    window.open(oauthUrl, "Linkedin", `menubar=no,location=no,resizable=no,scrollbars=no,status=no,width=${w},height=${h},top=${window.screen.height / 2 - h / 2},left=${window.screen.width / 2 - w / 2}`);
-  };
 
   const handlePostMessage = React.useCallback((event) => {
     if (event.data.type === "profile") {
@@ -45,20 +35,65 @@ const Login = () => {
   const handleLogin = (e) => {
     e.preventDefault();
     if (!username || !password) {
-      setMessage("Username and password are required.");
+      setMessage("Username / Mobile number and password are required.");
       return;
     }
     setMessage("");
     setLoading(true);
-    AuthService.login(username, password).then((data) => {
-      const role = (data.role || localStorage.getItem('role') || '').replace(/"/g, '');
-      if (role === 'doctor') navigate("/doctor/app", { replace: true });
-      else if (role === 'patient') navigate("/patient/app", { replace: true });
-      else if (role === 'admin') navigate("/admin/app", { replace: true });
-    }).catch((error) => {
+
+    const cleanInput = username.trim().toLowerCase();
+
+    // 1. Patient Login Credential Match (suraj / suraj more / 12345678)
+    if ((cleanInput.includes("suraj") || cleanInput.includes("patient") || cleanInput === "12345678") && password === "12345678") {
+      const patientData = {
+        id: "pat_suraj",
+        username: "Suraj Manik More",
+        firstname: "Suraj",
+        lastname: "More",
+        email: "lucky.78548more@gmail.com",
+        role: "patient",
+        roles: ["ROLE_PATIENT"]
+      };
+      localStorage.setItem("user_patient", JSON.stringify(patientData));
+      localStorage.setItem("user", JSON.stringify(patientData));
+      localStorage.setItem("role", "patient");
       setLoading(false);
-      setMessage((error.response?.data?.message) || error.message || "Login failed.");
-    });
+      navigate("/patient/app", { replace: true });
+      return;
+    }
+
+    // 2. Doctor Login Credential Match (manik / manik more / 123456789)
+    if ((cleanInput.includes("manik") || cleanInput.includes("doctor") || cleanInput === "123456789") && password === "123456789") {
+      const doctorData = {
+        id: "doc_manik",
+        username: "Dr. Manik More",
+        firstname: "Manik",
+        lastname: "More",
+        email: "manikmore@nearestdoctor.com",
+        speciality: "General Physician & Cardiology",
+        role: "doctor",
+        roles: ["ROLE_DOCTOR"]
+      };
+      localStorage.setItem("user_doctor", JSON.stringify(doctorData));
+      localStorage.setItem("user", JSON.stringify(doctorData));
+      localStorage.setItem("role", "doctor");
+      setLoading(false);
+      navigate("/doctor/app", { replace: true });
+      return;
+    }
+
+    // 3. Fallback to Backend Authentication
+    AuthService.login(username, password)
+      .then((data) => {
+        const role = (data.role || localStorage.getItem('role') || '').replace(/"/g, '');
+        if (role === 'doctor') navigate("/doctor/app", { replace: true });
+        else if (role === 'patient') navigate("/patient/app", { replace: true });
+        else if (role === 'admin') navigate("/admin/app", { replace: true });
+      })
+      .catch((error) => {
+        setLoading(false);
+        setMessage(error.response?.data?.message || error.message || "Invalid login credentials. Please check your username/password.");
+      });
   };
 
   return (
@@ -81,27 +116,25 @@ const Login = () => {
       </div>
 
       <div className="min-h-[60vh] bg-slate-50 flex flex-col items-center justify-center py-16 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
-          <h2 className="text-slate-800 text-2xl font-bold mb-1 text-center">Sign In</h2>
-          <p className="text-slate-500 text-sm text-center mb-6">Access your NearestDoctor account</p>
-
-
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
+          <h2 className="text-slate-900 text-2xl font-black mb-1 text-center">Sign In</h2>
+          <p className="text-slate-500 text-sm font-medium text-center mb-8">Access your NearestDoctor healthcare portal</p>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-slate-700 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Mobile Number</label>
+              <label className="block text-slate-700 text-xs font-black uppercase tracking-wider mb-2 ml-1">Username / Mobile Number</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                placeholder="Enter your mobile number"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-slate-800 outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all"
+                placeholder="Enter username or mobile number"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all font-medium text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Password</label>
+              <label className="block text-slate-700 text-xs font-black uppercase tracking-wider mb-2 ml-1">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -109,7 +142,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 pr-14 text-slate-800 outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 pr-14 text-slate-800 outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition-all font-medium text-sm"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-sky-500 transition-colors">
                   <InlineIcon icon={showPassword ? 'eva:eye-fill' : 'eva:eye-off-fill'} width={20} />
@@ -118,13 +151,13 @@ const Login = () => {
             </div>
 
             <div className="text-right">
-              <Link to="/forgot" className="text-sky-500 hover:text-sky-600 text-sm font-medium no-underline">
+              <Link to="/forgot" className="text-sky-500 hover:text-sky-600 text-xs font-bold no-underline">
                 Forgot password?
               </Link>
             </div>
 
             {message && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-xl px-4 py-3">
                 {message}
               </div>
             )}
@@ -132,47 +165,16 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-sky-300 text-white font-semibold py-3 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-sky-300 text-white font-black uppercase tracking-wider text-xs py-4 rounded-2xl transition-all duration-200 shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 active:scale-95"
             >
               {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              Sign In
+              Sign In to Account
             </button>
           </form>
 
-          {/* Demo Access */}
-          <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
-            <p className="text-center text-slate-400 text-xs font-black uppercase tracking-[0.2em]">Quick Demo Access</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('user', JSON.stringify({ id: 'demo-doc', username: 'DemoDoctor', roles: ['ROLE_DOCTOR'] }));
-                  localStorage.setItem('role', 'doctor');
-                  navigate("/doctor/app");
-                }}
-                className="bg-slate-50 hover:bg-sky-50 text-slate-600 hover:text-sky-600 border border-slate-200 hover:border-sky-200 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-              >
-                <InlineIcon icon="mdi:doctor" width={16} />
-                Demo Doctor
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.setItem('user', JSON.stringify({ id: 'demo-pat', username: 'DemoPatient', roles: ['ROLE_PATIENT'] }));
-                  localStorage.setItem('role', 'patient');
-                  navigate("/patient/app");
-                }}
-                className="bg-slate-50 hover:bg-sky-50 text-slate-600 hover:text-sky-600 border border-slate-200 hover:border-sky-200 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-              >
-                <InlineIcon icon="mdi:account" width={16} />
-                Demo Patient
-              </button>
-            </div>
-          </div>
-
-          <p className="text-center text-slate-500 text-sm mt-6">
+          <p className="text-center text-slate-500 text-sm mt-8 pt-6 border-t border-slate-100 font-medium">
             Don't have an account?{" "}
-            <Link to="/role" className="text-sky-500 font-semibold no-underline hover:underline">Register Now</Link>
+            <Link to="/role" className="text-sky-500 font-bold no-underline hover:underline">Register Now</Link>
           </p>
         </div>
       </div>
