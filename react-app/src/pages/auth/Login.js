@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import AuthService from "../../services/auth.service";
 import { useNavigate, Link } from "react-router-dom";
-import API_BASE_URL from "../../api-config";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { InlineIcon } from '@iconify/react';
@@ -96,6 +95,16 @@ const Login = () => {
       });
   };
 
+  const fillPatient = () => {
+    setUsername("suraj more");
+    setPassword("12345678");
+  };
+
+  const fillDoctor = () => {
+    setUsername("manik more");
+    setPassword("123456789");
+  };
+
   return (
     <div className="bg-slate-950 min-h-screen">
       <Navbar />
@@ -118,7 +127,44 @@ const Login = () => {
       <div className="min-h-[60vh] bg-slate-50 flex flex-col items-center justify-center py-16 px-4">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
           <h2 className="text-slate-900 text-2xl font-black mb-1 text-center">Sign In</h2>
-          <p className="text-slate-500 text-sm font-medium text-center mb-8">Access your NearestDoctor healthcare portal</p>
+          <p className="text-slate-500 text-sm font-medium text-center mb-6">Access your NearestDoctor healthcare portal</p>
+
+          {/* Login Credentials Box */}
+          <div className="mb-6 p-4 rounded-2xl bg-sky-50/70 border border-sky-100 text-xs space-y-2">
+            <div className="flex items-center gap-1.5 font-black text-sky-800 uppercase tracking-wider text-[11px]">
+              <InlineIcon icon="eva:info-fill" width={16} />
+              <span>Portal Login Credentials</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 font-medium">
+              <button
+                type="button"
+                onClick={fillPatient}
+                className="p-2.5 rounded-xl bg-white border border-sky-100 text-left hover:border-sky-300 hover:shadow-sm transition-all group cursor-pointer"
+                title="Click to auto-fill Patient credentials"
+              >
+                <p className="font-black text-sky-600 text-[10px] uppercase flex items-center justify-between">
+                  <span>Patient Login</span>
+                  <span className="text-[9px] text-slate-400 group-hover:text-sky-500">Auto-fill</span>
+                </p>
+                <p className="mt-1"><strong>User:</strong> suraj more</p>
+                <p><strong>Pass:</strong> 12345678</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={fillDoctor}
+                className="p-2.5 rounded-xl bg-white border border-emerald-100 text-left hover:border-emerald-300 hover:shadow-sm transition-all group cursor-pointer"
+                title="Click to auto-fill Doctor credentials"
+              >
+                <p className="font-black text-emerald-600 text-[10px] uppercase flex items-center justify-between">
+                  <span>Doctor Login</span>
+                  <span className="text-[9px] text-slate-400 group-hover:text-emerald-500">Auto-fill</span>
+                </p>
+                <p className="mt-1"><strong>User:</strong> manik more</p>
+                <p><strong>Pass:</strong> 123456789</p>
+              </button>
+            </div>
+          </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
